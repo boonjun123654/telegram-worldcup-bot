@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 
@@ -16,7 +17,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 
 async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     if not update.message:
         return
 
@@ -31,17 +31,14 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     username = update.effective_user.username
 
-    if username:
-        mention = f"@{username}"
-    else:
-        mention = update.effective_user.first_name
+    mention = f"@{username}" if username else update.effective_user.first_name
 
     await update.message.reply_text(
         f"✅ {mention} Prediction Recorded"
     )
 
 
-def main():
+async def main():
 
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -54,8 +51,13 @@ def main():
 
     print("Bot Running...")
 
-    app.run_polling()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+
+    while True:
+        await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
