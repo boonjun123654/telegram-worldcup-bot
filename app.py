@@ -127,6 +127,31 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not match:
         return
 
+    win_choice = match.group(1).strip()
+    goal_choice = match.group(2).strip()
+    
+    if not goal_choice.isdigit():
+
+        await update.message.reply_text(
+            "❌ Goal must be a number"
+        )
+
+        return
+
+    allowed = [
+        match_data["team1"].lower(),
+        match_data["team2"].lower(),
+        match_data["team3"].lower()
+    ]
+
+    if win_choice.lower() not in allowed:
+
+        await update.message.reply_text(
+            f"❌ Invalid Team\n\nAvailable:\n{match_data['team1']}\n{match_data['team2']}\n{match_data['team3']}"
+        )
+
+        return
+
     username = update.effective_user.username
 
     if username:
