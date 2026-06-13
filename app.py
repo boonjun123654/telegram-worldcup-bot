@@ -29,31 +29,28 @@ def get_active_match():
 
     cur = conn.cursor()
 
-    # 自动关闭旧比赛
     cur.execute("""
-        UPDATE matches
-        SET status='CLOSED'
+        SELECT match_code, team1, team2, team3, status
+        FROM matches
         WHERE status='OPEN'
+        ORDER BY id DESC
+        LIMIT 1
     """)
 
-    # 创建新比赛
-    cur.execute("""
-        INSERT INTO matches
-        (
-            match_code,
-            team1,
-            team2,
-            team3,
-            status
-        )
-        VALUES (%s,%s,%s,%s,'OPEN')
-    """,
-    (
-        match_id,
-        team1,
-        team2,
-        team3
-    ))
+    row = cur.fetchone()
+
+    cur.close()
+
+    if not row:
+        return None
+
+    return {
+        "match_id": row[0],
+        "team1": row[1],
+        "team2": row[2],
+        "team3": row[3],
+        "status": row[4]
+    }
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -82,6 +79,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             cur = conn.cursor()
 
+            # 关闭所有旧比赛
+            cur.execute("""
+                UPDATE matches
+                SET status='CLOSED'
+                WHERE status='OPEN'
+            """)
+
+            # 创建新比赛
             cur.execute("""
                 INSERT INTO matches
                 (
