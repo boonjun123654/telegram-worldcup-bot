@@ -32,6 +32,18 @@ def load_active_match():
             return json.load(f)
     except:
         return {}
+        
+def load_predictions():
+    try:
+        with open("predictions.json", "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def save_predictions(data):
+    with open("predictions.json", "w") as f:
+        json.dump(data, f)
 
 
 async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,6 +113,54 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
+    # 公布结果
+    if text.startswith("/results/"):
+
+        if update.effective_user.id not in ADMIN_IDS:
+            return
+
+        try:
+
+            parts = text.split("/")
+
+            match_id = parts[2]
+            result_win = parts[3]
+            result_goal = parts[4]
+
+            predictions = load_predictions()
+
+            winners = []
+
+            for p in predictions:
+
+                if (
+                    p["match_id"] == match_id
+                    and p["win"].lower() == result_win.lower()
+                    and str(p["goal"]) == str(result_goal)
+                ):
+                    winners.append(p["username"])
+
+            winner_text = "\n".join(winners)
+
+            if not winner_text:
+                winner_text = "No Winners"
+
+            await update.message.reply_text(
+                f"🏆 RESULT {match_id}\n\n"
+                f"Win : {result_win}\n"
+                f"Jumlah Gol : {result_goal}\n\n"
+                f"✅ Correct Predictors\n\n"
+                f"{winner_text}\n\n"
+                f"Total Winners : {len(winners)}"
+            )
+
+        except:
+            await update.message.reply_text(
+                "Format:\n/results/M0001/France/2"
+            )
+
+        return
+    
     # 玩家竞猜
     match_data = load_active_match()
 
@@ -159,10 +219,41 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         mention = update.effective_user.first_name
 
-    await update.message.reply_text(
-        f"✅ {mention} Prediction Recorded"
-    )
+    predictions = load_predictions()
 
+    user_id = update.effective_user.id
+
+    found = False
+
+    status_text = "Recorded"
+
+    for p in predictions:
+
+        if (
+            p["match_id"] == match_data["match_id"]
+            and p["user_id"] == user_id
+        ):
+            p["win"] = win_choice
+            p["goal"] = goal_choice
+            found = True
+            status_text = "Updated"
+            break
+            
+    if not found:
+
+        predictions.append({
+            "match_id": match_data["match_id"],
+            "user_id": user_id,
+            "username": mention,
+            "win": win_choice,
+            "goal": goal_choice
+        })
+
+    save_predictions(predictions)
+
+    await update.message.reply_text(
+        f"✅ {mention} Prediction {status_text}"
+    )
 
 async def main():
 
