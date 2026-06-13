@@ -151,7 +151,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cur.close()
 
             await update.message.reply_text(
-                f"⛔ Perlawanan Ditutup\n\n{match_id}"
+                f"⛔ Perlawanan Ditutup"
             )
 
         except:
@@ -317,12 +317,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 winner_text = "Tiada Pemenang"
 
             await update.message.reply_text(
-                f"🏆 KEPUTUSAN {match_id}\n\n"
+                f"🏆 KEPUTUSAN\n\n"
                 f"Menang : {result_win}\n"
                 f"Jumlah Gol : {result_goal}\n\n"
                 f"✅ Peramal Tepat\n\n"
                 f"{winner_text}\n\n"
                 f"Jumlah Pemenang : {len(winners)}"
+                f"Hubungi @Kedai_24CS untuk tuntut Bonus 30"
             )
 
         except:
