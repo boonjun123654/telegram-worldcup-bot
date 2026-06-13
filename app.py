@@ -111,7 +111,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ Match Created\n\n{match_id}\n{team1} vs {team2}"
             )
 
-        except Exception as e:
+    except Exception as e:
+
+        if "duplicate" in str(e).lower():
+
+            await update.message.reply_text(
+                f"❌ Match ID Already Exists\n\n{match_id}"
+            )
+
+        else:
+
+        await update.message.reply_text(
+            "Format:\n/newmatch/M0001/France/Japan/Seri"
+        )
 
             await update.message.reply_text(
                 "Format:\n/newmatch/M0001/France/Japan/Seri"
