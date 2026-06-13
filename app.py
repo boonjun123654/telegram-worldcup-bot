@@ -149,103 +149,103 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-# ==========================
-# SUMMARY
-# ==========================
+    # ==========================
+    # SUMMARY
+    # ==========================
 
-if text.startswith("/summary/"):
+    if text.startswith("/summary/"):
 
-    if update.effective_user.id not in ADMIN_IDS:
-        return
+        if update.effective_user.id not in ADMIN_IDS:
+            return
 
-    try:
+        try:
 
-        parts = text.split("/")
-        match_id = parts[2]
+            parts = text.split("/")
+            match_id = parts[2]
 
-        cur = conn.cursor()
+            cur = conn.cursor()
 
-        # 取得比赛资料
-        cur.execute("""
-            SELECT team1, team2, team3
-            FROM matches
-            WHERE match_code=%s
-        """,
-        (match_id,))
+            # 取得比赛资料
+            cur.execute("""
+                SELECT team1, team2, team3
+                FROM matches
+                WHERE match_code=%s
+            """,
+            (match_id,))
 
-        match_row = cur.fetchone()
+            match_row = cur.fetchone()
 
-        if not match_row:
+            if not match_row:
+
+                cur.close()
+
+                await update.message.reply_text(
+                    f"❌ Match Not Found\n\n{match_id}"
+                )
+
+                return
+
+            team1 = match_row[0]
+            team2 = match_row[1]
+            team3 = match_row[2]
+
+            # 统计 team1
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM predictions
+                WHERE match_code=%s
+                AND LOWER(win_choice)=LOWER(%s)
+            """,
+            (match_id, team1))
+
+            count_team1 = cur.fetchone()[0]
+
+            # 统计 team2
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM predictions
+                WHERE match_code=%s
+                AND LOWER(win_choice)=LOWER(%s)
+            """,
+            (match_id, team2))
+
+            count_team2 = cur.fetchone()[0]
+
+            # 统计 Seri
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM predictions
+                WHERE match_code=%s
+                AND LOWER(win_choice)=LOWER(%s)
+            """,
+            (match_id, team3))
+
+            count_team3 = cur.fetchone()[0]
+
+            total = (
+                count_team1 +
+                count_team2 +
+                count_team3
+            )
 
             cur.close()
 
             await update.message.reply_text(
-                f"❌ Match Not Found\n\n{match_id}"
+                f"📊 Prediction Summary\n\n"
+                f"Match : {match_id}\n\n"
+                f"{team1} : {count_team1}\n"
+                f"{team2} : {count_team2}\n"
+                f"{team3} : {count_team3}\n\n"
+                f"Total Predictions : {total}"
             )
 
-            return
+        except:
 
-        team1 = match_row[0]
-        team2 = match_row[1]
-        team3 = match_row[2]
+            await update.message.reply_text(
+                "Format:\n/summary/M0001"
+            )
 
-        # 统计 team1
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM predictions
-            WHERE match_code=%s
-            AND LOWER(win_choice)=LOWER(%s)
-        """,
-        (match_id, team1))
-
-        count_team1 = cur.fetchone()[0]
-
-        # 统计 team2
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM predictions
-            WHERE match_code=%s
-            AND LOWER(win_choice)=LOWER(%s)
-        """,
-        (match_id, team2))
-
-        count_team2 = cur.fetchone()[0]
-
-        # 统计 Seri
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM predictions
-            WHERE match_code=%s
-            AND LOWER(win_choice)=LOWER(%s)
-        """,
-        (match_id, team3))
-
-        count_team3 = cur.fetchone()[0]
-
-        total = (
-            count_team1 +
-            count_team2 +
-            count_team3
-        )
-
-        cur.close()
-
-        await update.message.reply_text(
-            f"📊 Prediction Summary\n\n"
-            f"Match : {match_id}\n\n"
-            f"{team1} : {count_team1}\n"
-            f"{team2} : {count_team2}\n"
-            f"{team3} : {count_team3}\n\n"
-            f"Total Predictions : {total}"
-        )
-
-    except:
-
-        await update.message.reply_text(
-            "Format:\n/summary/M0001"
-        )
-
-    return
+        return
     # ==========================
     # RESULTS
     # ==========================
