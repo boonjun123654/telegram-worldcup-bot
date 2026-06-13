@@ -1,7 +1,8 @@
+```python
 import asyncio
 import os
 import re
-import json
+import psycopg2
 
 from dotenv import load_dotenv
 from telegram import Update
@@ -15,45 +16,55 @@ from telegram.ext import (
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+conn = psycopg2.connect(DATABASE_URL)
+conn.autocommit = True
 
 ADMIN_IDS = {
     7166921660
 }
 
 
-def save_active_match(data):
-    with open("active_match.json", "w") as f:
-        json.dump(data, f)
+def get_active_match():
+
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT match_code, team1, team2, team3, status
+        FROM matches
+        WHERE status='OPEN'
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+
+    row = cur.fetchone()
+
+    cur.close()
+
+    if not row:
+        return None
+
+    return {
+        "match_id": row[0],
+        "team1": row[1],
+        "team2": row[2],
+        "team3": row[3],
+        "status": row[4]
+    }
 
 
-def load_active_match():
-    try:
-        with open("active_match.json", "r") as f:
-            return json.load(f)
-    except:
-        return {}
-        
-def load_predictions():
-    try:
-        with open("predictions.json", "r") as f:
-            return json.load(f)
-    except:
-        return []
-
-
-def save_predictions(data):
-    with open("predictions.json", "w") as f:
-        json.dump(data, f)
-
-
-async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.message:
         return
 
     text = update.message.text.strip()
 
-    # 开盘
+    # ==========================
+    # NEW MATCH
+    # ==========================
+
     if text.startswith("/newmatch/"):
 
         if update.effective_user.id not in ADMIN_IDS:
@@ -68,52 +79,81 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
             team2 = parts[4]
             team3 = parts[5]
 
-            data = {
-                "match_id": match_id,
-                "team1": team1,
-                "team2": team2,
-                "team3": team3,
-                "status": "OPEN"
-            }
+            cur = conn.cursor()
 
-            save_active_match(data)
+            cur.execute("""
+                INSERT INTO matches
+                (
+                    match_code,
+                    team1,
+                    team2,
+                    team3,
+                    status
+                )
+                VALUES (%s,%s,%s,%s,'OPEN')
+            """,
+            (
+                match_id,
+                team1,
+                team2,
+                team3
+            ))
+
+            cur.close()
 
             await update.message.reply_text(
                 f"✅ Match Created\n\n{match_id}\n{team1} vs {team2}"
             )
 
-        except:
+        except Exception as e:
+
             await update.message.reply_text(
                 "Format:\n/newmatch/M0001/France/Japan/Seri"
             )
 
         return
 
-    # 封盘
+    # ==========================
+    # STOP MATCH
+    # ==========================
+
     if text.startswith("/stopmatch/"):
 
         if update.effective_user.id not in ADMIN_IDS:
             return
 
-        match = load_active_match()
+        try:
 
-        if not match:
+            parts = text.split("/")
+            match_id = parts[2]
+
+            cur = conn.cursor()
+
+            cur.execute("""
+                UPDATE matches
+                SET status='CLOSED'
+                WHERE match_code=%s
+            """,
+            (match_id,))
+
+            cur.close()
+
             await update.message.reply_text(
-                "❌ No Active Match"
+                f"⛔ Match Closed\n\n{match_id}"
             )
-            return
 
-        match["status"] = "CLOSED"
+        except:
 
-        save_active_match(match)
-
-        await update.message.reply_text(
-            f"⛔ Match Closed\n\n{match['match_id']}"
-        )
+            await update.message.reply_text(
+                "Format:\n/stopmatch/M0001"
+            )
 
         return
 
-    # 公布结果
+    # ==========================
+    # RESULTS
+    # ==========================
+
     if text.startswith("/results/"):
 
         if update.effective_user.id not in ADMIN_IDS:
@@ -127,22 +167,44 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
             result_win = parts[3]
             result_goal = parts[4]
 
-            predictions = load_predictions()
+            cur = conn.cursor()
 
-            winners = []
+            cur.execute("""
+                UPDATE matches
+                SET
+                    status='CLOSED',
+                    result_win=%s,
+                    result_goal=%s
+                WHERE match_code=%s
+            """,
+            (
+                result_win,
+                result_goal,
+                match_id
+            ))
 
-            for p in predictions:
+            cur.execute("""
+                SELECT username
+                FROM predictions
+                WHERE match_code=%s
+                AND LOWER(win_choice)=LOWER(%s)
+                AND goal_prediction=%s
+            """,
+            (
+                match_id,
+                result_win,
+                result_goal
+            ))
 
-                if (
-                    p["match_id"] == match_id
-                    and p["win"].lower() == result_win.lower()
-                    and str(p["goal"]) == str(result_goal)
-                ):
-                    winners.append(p["username"])
+            rows = cur.fetchall()
 
-            winner_text = "\n".join(winners)
+            cur.close()
 
-            if not winner_text:
+            winners = [row[0] for row in rows]
+
+            if winners:
+                winner_text = "\n".join(winners)
+            else:
                 winner_text = "No Winners"
 
             await update.message.reply_text(
@@ -155,25 +217,20 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         except:
+
             await update.message.reply_text(
                 "Format:\n/results/M0001/France/2"
             )
 
         return
-    
-    # 玩家竞猜
-    match_data = load_active_match()
+
+    # ==========================
+    # PLAYER PREDICTION
+    # ==========================
+
+    match_data = get_active_match()
 
     if not match_data:
-        await update.message.reply_text(
-            "❌ No Active Match"
-        )
-        return
-
-    if match_data["status"] != "OPEN":
-        await update.message.reply_text(
-            "❌ Prediction Closed"
-        )
         return
 
     pattern = r"win\s*:\s*(.+)\njumlah\s*gol\s*:\s*(.+)"
@@ -189,7 +246,7 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     win_choice = match.group(1).strip()
     goal_choice = match.group(2).strip()
-    
+
     if not goal_choice.isdigit():
 
         await update.message.reply_text(
@@ -207,7 +264,11 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if win_choice.lower() not in allowed:
 
         await update.message.reply_text(
-            f"❌ Invalid Team\n\nAvailable:\n{match_data['team1']}\n{match_data['team2']}\n{match_data['team3']}"
+            f"❌ Invalid Team\n\n"
+            f"Available:\n"
+            f"{match_data['team1']}\n"
+            f"{match_data['team2']}\n"
+            f"{match_data['team3']}"
         )
 
         return
@@ -219,41 +280,69 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         mention = update.effective_user.first_name
 
-    predictions = load_predictions()
-
     user_id = update.effective_user.id
 
-    found = False
+    cur = conn.cursor()
 
-    status_text = "Recorded"
+    cur.execute("""
+        SELECT id
+        FROM predictions
+        WHERE match_code=%s
+        AND user_id=%s
+    """,
+    (
+        match_data["match_id"],
+        user_id
+    ))
 
-    for p in predictions:
+    existing = cur.fetchone()
 
-        if (
-            p["match_id"] == match_data["match_id"]
-            and p["user_id"] == user_id
-        ):
-            p["win"] = win_choice
-            p["goal"] = goal_choice
-            found = True
-            status_text = "Updated"
-            break
-            
-    if not found:
+    if existing:
 
-        predictions.append({
-            "match_id": match_data["match_id"],
-            "user_id": user_id,
-            "username": mention,
-            "win": win_choice,
-            "goal": goal_choice
-        })
+        cur.execute("""
+            UPDATE predictions
+            SET
+                win_choice=%s,
+                goal_prediction=%s
+            WHERE id=%s
+        """,
+        (
+            win_choice,
+            goal_choice,
+            existing[0]
+        ))
 
-    save_predictions(predictions)
+        status_text = "Updated"
+
+    else:
+
+        cur.execute("""
+            INSERT INTO predictions
+            (
+                match_code,
+                user_id,
+                username,
+                win_choice,
+                goal_prediction
+            )
+            VALUES (%s,%s,%s,%s,%s)
+        """,
+        (
+            match_data["match_id"],
+            user_id,
+            mention,
+            win_choice,
+            goal_choice
+        ))
+
+        status_text = "Recorded"
+
+    cur.close()
 
     await update.message.reply_text(
         f"✅ {mention} Prediction {status_text}"
     )
+
 
 async def main():
 
@@ -262,7 +351,7 @@ async def main():
     app.add_handler(
         MessageHandler(
             filters.TEXT,
-            handle_prediction
+            handle_message
         )
     )
 
@@ -278,3 +367,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+```
