@@ -322,8 +322,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Jumlah Gol : {result_goal}\n\n"
                 f"✅ Peramal Tepat\n\n"
                 f"{winner_text}\n\n"
-                f"Jumlah Pemenang : {len(winners)}\n\n"
-                f"Hubungi @Kedai_24CS untuk tuntut Bonus 30"
+                f"Jumlah Pemenang : {len(winners)}\n"
+                f"📳Hubungi @Kedai_24CS untuk tuntut Bonus 30"
             )
 
         except:
