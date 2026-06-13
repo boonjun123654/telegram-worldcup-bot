@@ -107,7 +107,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cur.close()
 
             await update.message.reply_text(
-                f"✅ Match Created\n\n{match_id}\n{team1} vs {team2}"
+                f"✅ Perlawanan Dicipta\n\n{match_id}\n{team1} lawan {team2}"
             )
 
         except Exception as e:
@@ -115,7 +115,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if "duplicate" in str(e).lower():
 
                 await update.message.reply_text(
-                    f"❌ Match ID Already Exists\n\n{match_id}"
+                    f"❌ ID Perlawanan Sudah Wujud\n\n{match_id}"
                 )
 
             else:
@@ -151,7 +151,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cur.close()
 
             await update.message.reply_text(
-                f"⛔ Match Closed\n\n{match_id}"
+                f"⛔ Perlawanan Ditutup\n\n{match_id}"
             )
 
         except:
@@ -193,7 +193,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 cur.close()
 
                 await update.message.reply_text(
-                    f"❌ Match Not Found\n\n{match_id}"
+                    f"❌ Perlawanan Tidak Ditemui\n\n{match_id}"
                 )
 
                 return
@@ -244,12 +244,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cur.close()
 
             await update.message.reply_text(
-                f"📊 Prediction Summary\n\n"
-                f"Match : {match_id}\n\n"
+                f"📊 Ringkasan Ramalan\n\n"
+                f"Perlawanan : {match_id}\n\n"
                 f"{team1} : {count_team1}\n"
                 f"{team2} : {count_team2}\n"
                 f"{team3} : {count_team3}\n\n"
-                f"Total Predictions : {total}"
+                f"Jumlah Ramalan : {total}"
             )
 
         except:
@@ -314,15 +314,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if winners:
                 winner_text = "\n".join(winners)
             else:
-                winner_text = "No Winners"
+                winner_text = "Tiada Pemenang"
 
             await update.message.reply_text(
-                f"🏆 RESULT {match_id}\n\n"
-                f"Win : {result_win}\n"
+                f"🏆 KEPUTUSAN {match_id}\n\n"
+                f"Menang : {result_win}\n"
                 f"Jumlah Gol : {result_goal}\n\n"
-                f"✅ Correct Predictors\n\n"
+                f"✅ Peramal Tepat\n\n"
                 f"{winner_text}\n\n"
-                f"Total Winners : {len(winners)}"
+                f"Jumlah Pemenang : {len(winners)}"
             )
 
         except:
@@ -342,7 +342,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not match_data:
         return
 
-    pattern = r"win\s*:\s*(.+)\njumlah\s*gol\s*:\s*(.+)"
+    pattern = r"(?:menang|win)\s*:\s*(.+)\njumlah\s*gol\s*:\s*(.+)"
 
     match = re.search(
         pattern,
@@ -359,7 +359,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not goal_choice.isdigit():
 
         await update.message.reply_text(
-            "❌ Goal must be a number"
+            "❌ Jumlah gol mesti nombor"
         )
 
         return
@@ -373,8 +373,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if win_choice.lower() not in allowed:
 
         await update.message.reply_text(
-            f"❌ Invalid Team\n\n"
-            f"Available:\n"
+            f"❌ Pasukan Tidak Sah\n\n"
+            f"Pilihan tersedia:\n"
             f"{match_data['team1']}\n"
             f"{match_data['team2']}\n"
             f"{match_data['team3']}"
@@ -421,7 +421,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             existing[0]
         ))
 
-        status_text = "Updated"
+        status_text = "Dikemas Kini"
 
     else:
 
@@ -444,12 +444,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             goal_choice
         ))
 
-        status_text = "Recorded"
+        status_text = "Direkodkan"
 
     cur.close()
 
     await update.message.reply_text(
-        f"✅ {mention} Prediction {status_text}"
+        f"✅ Ramalan {mention} {status_text}"
     )
 
 
