@@ -54,6 +54,7 @@ def get_active_match():
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+    print("CHAT ID =", update.effective_chat.id)
     if not update.message:
         return
 
